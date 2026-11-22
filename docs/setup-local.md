@@ -52,6 +52,24 @@ Open `NearbyBackendApplication` and click *Run*. On first start, `spring-boot-do
 
 On first start, Flyway creates the schema (22 tables plus the outbox) and seeds the reference data.
 
+### Load sample listings for database tests
+
+After Flyway has run against the local development database, you can import the optional
+[demo seed](../src/test/resources/db/demo/seed_demo.sql) from the repository root. With the default Compose settings on Linux or macOS, run:
+
+```sh
+docker compose exec -T postgres psql -U nearby -d nearby -v ON_ERROR_STOP=1 --single-transaction -f - < src/test/resources/db/demo/seed_demo.sql
+```
+
+On PowerShell, pipe the file with `Get-Content -Raw` and set the encoding so `psql` receives the Vietnamese text correctly:
+
+```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+Get-Content -Raw -Encoding utf8 src/test/resources/db/demo/seed_demo.sql | docker compose exec -T postgres psql -U nearby -d nearby -v ON_ERROR_STOP=1 --single-transaction -f -
+```
+
+Use your configured database name and username if they differ. The seed reuses the Flyway category `ELECTRONICS` and adds two sample users, 20 listings, and one image record per listing. Ten sample listings are within 1 km of latitude `10.8700`, longitude `106.8000`. The user records are for database tests and the image keys refer to placeholder files.
+
 ### Check that the app is running
 
 | URL | Expected result |
@@ -69,6 +87,7 @@ To browse the database with DBeaver or DataGrip, use host `localhost`, port `543
 ./gradlew build            # tests + format check + module boundaries + coverage
 ./gradlew test             # tests only
 ./gradlew test --tests '*TokenServiceTests'
+./gradlew test --tests '*ListingDemoIntegrationTests'
 ./gradlew format           # format code before committing
 ```
 

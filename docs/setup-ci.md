@@ -1,6 +1,6 @@
 # CI setup (GitHub Actions)
 
-The project currently has **CI only**: every push and Pull Request is built and checked automatically. There is no CD (automated deployment) yet.
+The project uses **CI** to build and test changes to `main` and `master`. Deployment is manual.
 
 ## 1. What CI does
 
@@ -8,8 +8,8 @@ Workflow file: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
 | Trigger | When |
 |---|---|
-| Push to `master` | Every merged or directly pushed commit |
-| Pull Request into `master` opened or updated | Every push to the PR branch |
+| Push to `main` or `master` | Every merged or directly pushed commit |
+| Pull Request into `main` or `master` opened or updated | Every push to the PR branch |
 | Manual run | **Actions** tab → **CI** → **Run workflow** |
 
 A single job, **Build & test** (Ubuntu, JDK 25), runs `./gradlew build`. The build **fails** on any of the following:
@@ -39,8 +39,8 @@ No secrets or extra settings are needed. GitHub picks up the workflow as soon as
    git push -u origin feature/init-infra
    ```
 
-2. On GitHub, open a Pull Request from `feature/init-infra` into `master`. CI runs automatically and its status appears on the PR.
-3. See details in the repository's **Actions** tab: https://github.com/TrinhHoa-23520508/nearby-backend/actions
+2. Open a Pull Request from `feature/init-infra` into the repository's default branch (`main` or `master`). CI runs automatically and its status appears on the PR.
+3. See details in the repository's **Actions** tab.
 
 If the Actions tab shows no workflow, go to **Settings → Actions → General**, select **Allow all actions and reusable workflows**, and click **Save**.
 
@@ -48,10 +48,10 @@ If the Actions tab shows no workflow, go to **Settings → Actions → General**
 
 ## 3. Require green CI before merging (recommended)
 
-This stops code that breaks the build from being merged into `master`.
+This keeps a failing build from being merged into the default branch.
 
 1. **Settings → Branches → Add branch ruleset** (or *Add classic branch protection rule*).
-2. Branch: `master`.
+2. Target the default branch (`main` or `master`).
 3. Enable these options:
    - **Require a pull request before merging**
    - **Require status checks to pass**, and add the check **`Build & test`**. The check only appears in the list after CI has run at least once.
