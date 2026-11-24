@@ -110,6 +110,10 @@ The seed uses the `ELECTRONICS` reference category and creates two sample users,
 and 20 listings with one image record each. Ten listings are within 1 km of latitude `10.8700`,
 longitude `106.8000`. Use a registered account for login tests. The image keys are placeholders for SQL tests.
 
+Run `./gradlew test --tests '*ListingDemoIntegrationTests'` with Docker running to verify the seed.
+The test also places two demo listings on either side of 1 km and checks that the search API uses
+their public locations for filtering and returns no coordinates.
+
 ### Check that the app is running
 
 | URL | Expected result |

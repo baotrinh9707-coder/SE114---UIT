@@ -1,6 +1,10 @@
 package vn.edu.uit.nearby.nearby_backend.listing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
 
@@ -8,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import vn.edu.uit.nearby.nearby_backend.support.IntegrationTest;
@@ -22,6 +28,9 @@ class ListingDemoIntegrationTests {
 
 	@Autowired
 	JdbcTemplate jdbc;
+
+	@Autowired
+	MockMvc mvc;
 
 	@Test
 	@Sql({ SEED, SEED })
@@ -59,6 +68,46 @@ class ListingDemoIntegrationTests {
 
 		assertThat(titles).containsExactly("Tin mẫu 1", "Tin mẫu 2", "Tin mẫu 3", "Tin mẫu 4", "Tin mẫu 5", "Tin mẫu 6",
 				"Tin mẫu 7", "Tin mẫu 8", "Tin mẫu 9", "Tin mẫu 10");
+	}
+
+	@Test
+	@Sql(SEED)
+	void searchFiltersOnPublicPointsNearTheRadiusWithoutReturningCoordinates() throws Exception {
+		UUID inside = UUID.fromString("20000000-0000-4000-8000-000000000010");
+		UUID outside = UUID.fromString("20000000-0000-4000-8000-000000000011");
+
+		// The two points are about 998.5 m and 1001.9 m from the search center.
+		// Swap exact points so filtering on them would return the wrong listing.
+		int updated = this.jdbc.update("""
+				WITH points(id, public_lat, exact_lat) AS (
+				    VALUES (CAST(? AS uuid), 10.87898, 10.87901),
+				           (CAST(? AS uuid), 10.87901, 10.87898)
+				)
+				UPDATE listings l
+				SET description = 'se114radiusboundary',
+				    public_location = ST_SetSRID(ST_MakePoint(106.8000, p.public_lat), 4326)::geography,
+				    exact_location = ST_SetSRID(ST_MakePoint(106.8000, p.exact_lat), 4326)::geography
+				FROM points p WHERE l.id = p.id
+				""", inside, outside);
+		assertThat(updated).isEqualTo(2);
+
+		searchAtRadius("1").andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[*].id", contains(inside.toString())))
+			.andExpect(jsonPath("$.items[0].distanceMeters").value(1000));
+		searchAtRadius("1.01").andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[*].id", contains(inside.toString(), outside.toString())))
+			.andExpect(jsonPath("$..pin").isEmpty())
+			.andExpect(jsonPath("$..publicPoint").isEmpty())
+			.andExpect(jsonPath("$..latitude").isEmpty())
+			.andExpect(jsonPath("$..longitude").isEmpty());
+	}
+
+	private ResultActions searchAtRadius(String radiusKm) throws Exception {
+		return this.mvc.perform(get("/api/v1/search").param("q", "se114radiusboundary")
+			.param("lat", "10.8700")
+			.param("lon", "106.8000")
+			.param("radiusKm", radiusKm)
+			.param("sort", "NEAREST"));
 	}
 
 }
