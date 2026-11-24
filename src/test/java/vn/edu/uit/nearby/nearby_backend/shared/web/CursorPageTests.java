@@ -3,9 +3,7 @@ package vn.edu.uit.nearby.nearby_backend.shared.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,12 +27,10 @@ class CursorPageTests {
 
 	@Test
 	void legacyMillisecondCursorStillDecodes() {
-		long timestamp = 1_760_000_000_123L;
-		UUID id = UUID.randomUUID();
-		String raw = timestamp + "|" + id;
-		String legacyToken = Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+		String legacyToken = "MTIzfDEwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ";
+		UUID id = UUID.fromString("10000000-0000-4000-8000-000000000001");
 
-		assertThat(Cursor.decode(legacyToken)).contains(new Cursor(Instant.ofEpochMilli(timestamp), id));
+		assertThat(Cursor.decode(legacyToken)).contains(new Cursor(Instant.ofEpochMilli(123), id));
 	}
 
 	@Test
