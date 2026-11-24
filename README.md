@@ -1,40 +1,55 @@
 # Nearby backend
 
-Backend for the hyperlocal second-hand marketplace. It is a Spring Boot 4.1 / Java 25 **modular monolith** (Spring Modulith) built on PostgreSQL + PostGIS, Redis, and MinIO.
+Nearby is an Android-first marketplace for buying and selling second-hand goods in GPS-verified areas. This repository contains the backend for the SE114 Introduction to Mobile Applications project by team Prompt AI. It uses Java 25, Spring Boot 4.1, Spring Modulith, and PostgreSQL with PostGIS.
 
-## Requirements
+## Quick start
 
-- JDK 25
-- Docker with Docker Compose
+Install **JDK 25** and start **Docker with Docker Compose**. On the first run, copy the development configuration and start the app from the repository root.
 
-## Setup
+**Linux and macOS**
 
 ```sh
 cp .env.example .env
+./gradlew bootRun
 ```
 
-## Run
+**Windows PowerShell**
 
-```sh
-./gradlew bootRun      # compose.yaml starts PostGIS (5433), Redis and MinIO
+```powershell
+Copy-Item .env.example .env
+.\gradlew.bat bootRun
 ```
 
-The API runs on <http://localhost:8080>, with Swagger UI at <http://localhost:8080/swagger-ui.html>.
+Spring Boot starts PostGIS (host port `5433`), Redis, RabbitMQ, and MinIO through Docker Compose. Flyway applies the database migrations and loads reference data on startup.
 
-## Build
+- [Swagger UI](http://localhost:8080/swagger-ui.html) · [Health check](http://localhost:8080/actuator/health)
+- [Android emulator and device configuration](docs/setup-local.md#6-calling-the-api-from-the-android-app)
+- [Load the optional W03-C demo seed](docs/setup-local.md#load-sample-listings-for-database-tests)
 
-```sh
-./gradlew build        # tests + format check + module verification + coverage gate
-./gradlew format       # fixes formatting
-```
+## Modules and API contracts
+
+REST endpoints use `/api/v1`. Use a bearer access token for protected endpoints and follow the individual API contracts for actions that require an `Idempotency-Key`. Chat uses STOMP over `/ws`.
+
+| Module | What it handles | Reference |
+| --- | --- | --- |
+| `identity` | Phone-first accounts, sessions, profiles, consent, blocks, and administration | [Identity API](docs/api/identity-api.md) |
+| `areaverification` | GPS area verification, renewal, and active area selection | [Area API](docs/api/area-api.md) |
+| `listing` | Categories, listing management, image processing, favorites, nearby search, and filters | [Listing API](docs/api/listing-api.md) |
+| `chat` | Conversations, messages, notifications, and push integration | [Chat and Notification API](docs/api/chat-api.md) · [STOMP frames](docs/api/chat-stomp.md) |
+| `transaction` and `reputation` | Database schema for future transaction and reputation services | [Flyway migrations](src/main/resources/db/migration/) |
+| `shared` | Security, error handling, storage, and common web utilities | [Code structure](docs/setup-local.md#5-code-structure) |
+
+Import the [Postman collections and local environment](docs/postman/) to try the API. The [OpenAPI definition](docs/api/openapi.yml) is also available in the repository.
 
 ## Architecture
+
+The diagram shows the deployment layout. Local development calls Spring Boot directly. Firebase Cloud Messaging is optional and uses the configuration described in [local setup](docs/setup-local.md#92-firebase-cloud-messaging-real-push-fr-nt-02).
 
 ```mermaid
 flowchart LR
     A["Android app"] -->|"REST + STOMP"| N["Nginx"]
     A -->|"presigned image URLs"| N
-    FCM["Firebase Cloud Messaging (planned)"] -.->|"push"| A
+    FCM["Firebase Cloud Messaging (optional)"] -.->|"push"| A
 
     subgraph VM["Docker Compose"]
         N --> APP
@@ -45,8 +60,8 @@ flowchart LR
             ID["identity"]
             AV["areaverification"]
             L["listing"]
-            T["transaction"]
-            REP["reputation"]
+            T["transaction schema"]
+            REP["reputation schema"]
             C["chat"]
             SH["shared"]
         end
@@ -63,12 +78,14 @@ flowchart LR
     APP --> SMTP["SMTP"]
 ```
 
-## More
+## Build and test
 
-- [Local setup](docs/setup-local.md)
-- [CI](docs/setup-ci.md)
-- [Deployment](deploy/README.md)
-- [Identity API](docs/api/identity-api.md)
-- [Area API](docs/api/area-api.md)
-- [Listing API](docs/api/listing-api.md)
-- [Chat and Notification API](docs/api/chat-api.md) and its [STOMP frame reference](docs/api/chat-stomp.md)
+```sh
+./gradlew build
+```
+
+On Windows, run `.\gradlew.bat build`. Keep Docker running for Testcontainers. The build checks tests, Spring Modulith boundaries, Java formatting, and JaCoCo line coverage (60% overall and 80% for domain and application packages). Run `./gradlew format` if the formatting check reports changes.
+
+- [Local setup and troubleshooting](docs/setup-local.md)
+- [GitHub Actions and coverage reports](docs/setup-ci.md)
+- [Deployment guide](deploy/README.md)
