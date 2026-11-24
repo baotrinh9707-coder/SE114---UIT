@@ -2,6 +2,7 @@ package vn.edu.uit.nearby.nearby_backend.shared.web;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -42,8 +43,10 @@ public record CursorPage<T>(List<T> items, @Nullable String nextCursor, boolean 
 
 		private static final String SEPARATOR = "|";
 
+		private static final String PRECISE_TIMESTAMP_PREFIX = "v2:";
+
 		public String encode() {
-			String raw = createdAt.toEpochMilli() + SEPARATOR + id;
+			String raw = PRECISE_TIMESTAMP_PREFIX + createdAt + SEPARATOR + id;
 			return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
 		}
 
@@ -54,10 +57,13 @@ public record CursorPage<T>(List<T> items, @Nullable String nextCursor, boolean 
 			try {
 				String raw = new String(Base64.getUrlDecoder().decode(token), StandardCharsets.UTF_8);
 				int separatorIndex = raw.indexOf(SEPARATOR);
-				Instant createdAt = Instant.ofEpochMilli(Long.parseLong(raw.substring(0, separatorIndex)));
+				String timestamp = raw.substring(0, separatorIndex);
+				Instant createdAt = timestamp.startsWith(PRECISE_TIMESTAMP_PREFIX)
+						? Instant.parse(timestamp.substring(PRECISE_TIMESTAMP_PREFIX.length()))
+						: Instant.ofEpochMilli(Long.parseLong(timestamp));
 				return Optional.of(new Cursor(createdAt, UUID.fromString(raw.substring(separatorIndex + 1))));
 			}
-			catch (IllegalArgumentException | IndexOutOfBoundsException ex) {
+			catch (DateTimeParseException | IllegalArgumentException | IndexOutOfBoundsException ex) {
 				throw new InvalidRequestException(ErrorCodes.INVALID_CURSOR, "The pagination cursor is invalid.");
 			}
 		}

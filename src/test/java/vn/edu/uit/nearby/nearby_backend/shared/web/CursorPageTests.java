@@ -3,7 +3,9 @@ package vn.edu.uit.nearby.nearby_backend.shared.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,10 +21,20 @@ import vn.edu.uit.nearby.nearby_backend.shared.web.CursorPage.Cursor;
 class CursorPageTests {
 
 	@Test
-	void cursorSurvivesEncodeDecodeRoundTrip() {
-		Cursor cursor = new Cursor(Instant.ofEpochMilli(1_760_000_000_123L), UUID.randomUUID());
+	void cursorPreservesSubMillisecondPrecision() {
+		Cursor cursor = new Cursor(Instant.parse("2026-11-24T03:00:00.123456Z"), UUID.randomUUID());
 
 		assertThat(Cursor.decode(cursor.encode())).contains(cursor);
+	}
+
+	@Test
+	void legacyMillisecondCursorStillDecodes() {
+		long timestamp = 1_760_000_000_123L;
+		UUID id = UUID.randomUUID();
+		String raw = timestamp + "|" + id;
+		String legacyToken = Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+
+		assertThat(Cursor.decode(legacyToken)).contains(new Cursor(Instant.ofEpochMilli(timestamp), id));
 	}
 
 	@Test
