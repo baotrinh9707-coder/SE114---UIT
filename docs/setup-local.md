@@ -85,7 +85,30 @@ Open `NearbyBackendApplication` and click *Run*. On first start, `spring-boot-do
 ./gradlew bootRun          # Windows: gradlew.bat bootRun
 ```
 
-On first start, Flyway creates the schema (22 tables plus the outbox) and seeds the reference data.
+On first start, Flyway creates the schema and seeds the reference data.
+
+### Load sample listings for database tests
+
+Use a fresh development database for the demo. Flyway V14 rebuilds the listing tables, so back up
+any existing listing data before applying that migration to a database that already contains listings.
+
+After Flyway has run, import the optional [demo seed](../src/test/resources/db/demo/seed_demo.sql)
+from the repository root. With the default Compose settings on Linux or macOS, run:
+
+```sh
+docker compose exec -T postgres psql -U nearby -d nearby -v ON_ERROR_STOP=1 --single-transaction -f - < src/test/resources/db/demo/seed_demo.sql
+```
+
+On PowerShell, pipe the file as UTF-8:
+
+```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+Get-Content -Raw -Encoding utf8 src/test/resources/db/demo/seed_demo.sql | docker compose exec -T postgres psql -U nearby -d nearby -v ON_ERROR_STOP=1 --single-transaction -f -
+```
+
+The seed uses the `ELECTRONICS` reference category and creates two sample users, two verified areas,
+and 20 listings with one image record each. Ten listings are within 1 km of latitude `10.8700`,
+longitude `106.8000`. Use a registered account for login tests. The image keys are placeholders for SQL tests.
 
 ### Check that the app is running
 
@@ -104,6 +127,7 @@ To browse the database with DBeaver or DataGrip, use host `localhost`, port `543
 ./gradlew build            # tests + format check + module boundaries + coverage
 ./gradlew test             # tests only
 ./gradlew test --tests '*TokenServiceTests'
+./gradlew test --tests '*ListingDemoIntegrationTests'
 ./gradlew format           # format code before committing
 ```
 
