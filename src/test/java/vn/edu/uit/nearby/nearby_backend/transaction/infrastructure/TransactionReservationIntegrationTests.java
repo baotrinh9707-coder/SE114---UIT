@@ -49,11 +49,9 @@ class TransactionReservationIntegrationTests {
 					return accept(second);
 				}));
 
-				// Keep the first transaction open until PostgreSQL confirms the second is waiting.
+				// Wait for the second session to block before committing the first.
 				int otherPid = waitingPid.orTimeout(10, TimeUnit.SECONDS).join();
-				await().pollInSameThread()
-					.atMost(Duration.ofSeconds(10))
-					.until(() -> isBlocked(blockingPid, otherPid));
+				await().pollInSameThread().atMost(Duration.ofSeconds(10)).until(() -> isBlocked(blockingPid, otherPid));
 				return competing;
 			});
 
