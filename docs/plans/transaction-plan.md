@@ -75,6 +75,8 @@ The SRS data dictionary has two modules, `trade` and `payment`, and the events t
 
 V4 created an early `transactions` table with the v0.1 shape (no WITHDRAWN, no `origin`, no confirmation or payment columns, still `exchange_note`; OI-08). It holds no meaningful rows. **V17 drops and recreates it** (the V12, V14 and V15 approach) with `transaction_status_history` and `appointments`. **V18** creates the six payment tables.
 
+V16.1 adds `transactions_accepted_listing_uq` to the current schema for W07-C. Keep the same rule when V17 recreates the table. `TransactionReservationIntegrationTests` verifies concurrent acceptance and release after cancellation at the database level.
+
 | Table | Notes |
 |---|---|
 | `transactions` | 28 columns of the dictionary. `origin` OFFER, RESERVATION, MARK_SOLD. `status` OFFERED, ACCEPTED, COMPLETED, REJECTED, WITHDRAWN, EXPIRED, CANCELLED. `current_price` fixed for the life of the offer. `payment_method` CASH default; `payment_status` NONE default. `version` for the optimistic lock. Partial unique index (`listing_id`) WHERE ACCEPTED; partial unique index (`listing_id`, `buyer_id`) WHERE OFFERED or ACCEPTED (`transactions_open_offer_uq`, kept from V4); index (`status`, `expires_at`) for the jobs; indexes by buyer and by seller for the history |
