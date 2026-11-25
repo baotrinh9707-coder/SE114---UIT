@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -24,7 +24,7 @@ import vn.edu.uit.nearby.nearby_backend.support.IntegrationTest;
 class TransactionReservationIntegrationTests {
 
 	@Autowired
-	JdbcClient jdbc;
+	JdbcTemplate jdbc;
 
 	@Autowired
 	PlatformTransactionManager transactionManager;
@@ -51,7 +51,9 @@ class TransactionReservationIntegrationTests {
 
 				// Keep the first transaction open until PostgreSQL confirms the second is waiting.
 				int otherPid = waitingPid.orTimeout(10, TimeUnit.SECONDS).join();
-				await().pollInSameThread().atMost(Duration.ofSeconds(10)).until(() -> isBlocked(blockingPid, otherPid));
+				await().pollInSameThread()
+					.atMost(Duration.ofSeconds(10))
+					.until(() -> isBlocked(blockingPid, otherPid));
 				return competing;
 			});
 
@@ -61,48 +63,39 @@ class TransactionReservationIntegrationTests {
 			assertThat(statusOf(first)).isEqualTo("ACCEPTED");
 			assertThat(statusOf(second)).isEqualTo("OFFERED");
 
-			int cancelled = this.jdbc.sql("UPDATE transactions SET status = 'CANCELLED' WHERE id = :id")
-				.param("id", first)
-				.update();
+			int cancelled = this.jdbc.update("UPDATE transactions SET status = 'CANCELLED' WHERE id = ?", first);
 			assertThat(cancelled).isEqualTo(1);
 			assertThat(accept(second)).isEqualTo(1);
 			assertThat(statusOf(second)).isEqualTo("ACCEPTED");
 		}
 		finally {
-			this.jdbc.sql("DELETE FROM transactions WHERE listing_id = :listing").param("listing", listing).update();
+			this.jdbc.update("DELETE FROM transactions WHERE listing_id = ?", listing);
 		}
 	}
 
 	private UUID insertOffer(UUID listing, UUID seller) {
-		return this.jdbc.sql("""
+		return this.jdbc.queryForObject("""
 				INSERT INTO transactions (id, listing_id, buyer_id, seller_id, offered_price)
-				VALUES (gen_random_uuid(), :listing, :buyer, :seller, 100000)
+				VALUES (gen_random_uuid(), ?, ?, ?, 100000)
 				RETURNING id
-				""").param("listing", listing).param("buyer", UUID.randomUUID()).param("seller", seller).query(UUID.class)
-			.single();
+				""", UUID.class, listing, UUID.randomUUID(), seller);
 	}
 
 	private int accept(UUID id) {
-		return this.jdbc.sql("UPDATE transactions SET status = 'ACCEPTED' WHERE id = :id AND status = 'OFFERED'")
-			.param("id", id)
-			.update();
+		return this.jdbc.update("UPDATE transactions SET status = 'ACCEPTED' WHERE id = ? AND status = 'OFFERED'", id);
 	}
 
 	private String statusOf(UUID id) {
-		return this.jdbc.sql("SELECT status FROM transactions WHERE id = :id").param("id", id).query(String.class)
-			.single();
+		return this.jdbc.queryForObject("SELECT status FROM transactions WHERE id = ?", String.class, id);
 	}
 
 	private int backendPid() {
-		return this.jdbc.sql("SELECT pg_backend_pid()").query(Integer.class).single();
+		return this.jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
 	}
 
 	private boolean isBlocked(int blockingPid, int waitingPid) {
-		return this.jdbc.sql("SELECT :blockingPid = ANY(pg_blocking_pids(:waitingPid))")
-			.param("blockingPid", blockingPid)
-			.param("waitingPid", waitingPid)
-			.query(Boolean.class)
-			.single();
+		return Boolean.TRUE.equals(this.jdbc.queryForObject("SELECT ? = ANY(pg_blocking_pids(?))", Boolean.class,
+				blockingPid, waitingPid));
 	}
 
 }
